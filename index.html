@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robot Runner</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #0f172a, #1d4ed8 45%, #0f172a);
+      color: #f8fafc;
+    }
+
+    .game-shell {
+      width: min(92vw, 960px);
+      padding: 1rem;
+      border-radius: 24px;
+      background: rgba(2, 6, 23, 0.78);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .hud button {
+      border: none;
+      border-radius: 999px;
+      padding: 0.7rem 1rem;
+      background: linear-gradient(135deg, #38bdf8, #2563eb);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    .hud button:hover {
+      transform: translateY(-1px);
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #38bdf8 0%, #f8fafc 65%, #86efac 65%, #4ade80 100%);
+      border: 2px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .overlay {
+      margin-top: 0.75rem;
+      text-align: center;
+      color: #cbd5e1;
+      font-size: 0.95rem;
+    }
+
+    .settings-panel {
+      margin-top: 0.9rem;
+      padding: 1rem;
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.7rem;
+    }
+
+    .settings-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      color: #f8fafc;
+    }
+
+    .settings-header button,
+    .preset-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 0.45rem 0.8rem;
+      background: rgba(56, 189, 248, 0.2);
+      color: #bae6fd;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .preset-btn.active {
+      background: linear-gradient(135deg, #38bdf8, #2563eb);
+      color: white;
+    }
+
+    .settings-grid {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 1fr) 1fr auto;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.92rem;
+      color: #e2e8f0;
+    }
+
+    .control-row input {
+      width: 100%;
+      accent-color: #38bdf8;
+    }
+
+    .value-pill {
+      min-width: 3.4rem;
+      text-align: center;
+      padding: 0.25rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(248, 250, 252, 0.13);
+      color: #f8fafc;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-shell">
+    <div class="hud">
+      <div>Score: <span id="score">0</span></div>
+      <button id="restartBtn">Start / Restart</button>
+    </div>
+    <canvas id="gameCanvas" width="900" height="400"></canvas>
+    <div class="overlay" id="overlayText">Press Space, ↑, or click to jump over the hazards.</div>
+
+    <section class="settings-panel" aria-label="Game tuning settings">
+      <div class="settings-header">
+        <h2>Tuning settings</h2>
+        <button id="resetSettingsBtn" type="button">Reset</button>
+      </div>
+      <div class="preset-row">
+        <button class="preset-btn" data-preset="easy" type="button">Easy</button>
+        <button class="preset-btn active" data-preset="balanced" type="button">Balanced</button>
+        <button class="preset-btn" data-preset="hard" type="button">Hard</button>
+      </div>
+      <div class="settings-grid">
+        <label class="control-row">
+          <span>Jump force</span>
+          <input class="settings-control" id="jumpForce" data-setting="jumpForce" type="range" min="9" max="16" step="0.1" value="12.7" />
+          <span class="value-pill" id="jumpForceValue">12.7</span>
+        </label>
+        <label class="control-row">
+          <span>Gravity</span>
+          <input class="settings-control" id="gravity" data-setting="gravity" type="range" min="0.25" max="0.9" step="0.01" value="0.48" />
+          <span class="value-pill" id="gravityValue">0.48</span>
+        </label>
+        <label class="control-row">
+          <span>Ground speed</span>
+          <input class="settings-control" id="groundSpeed" data-setting="groundSpeed" type="range" min="2" max="8" step="0.1" value="4.2" />
+          <span class="value-pill" id="groundSpeedValue">4.2</span>
+        </label>
+        <label class="control-row">
+          <span>Delay variance</span>
+          <input class="settings-control" id="spawnDelayVariance" data-setting="spawnDelayVariance" type="range" min="0" max="400" step="10" value="200" />
+          <span class="value-pill" id="spawnDelayVarianceValue">200 ms</span>
+        </label>
+        <label class="control-row">
+          <span>Spawn intervalX</span>
+          <input class="settings-control" id="spawnInterval" data-setting="spawnInterval" type="range" min="500" max="1200" step="25" value="800" />
+          <span class="value-pill" id="spawnIntervalValue">800 ms</span>
+        </label>
+        <label class="control-row">
+          <span>Score rate</span>
+          <input class="settings-control" id="scoreRate" data-setting="scoreRate" type="range" min="0.02" max="0.08" step="0.001" value="0.035" />
+          <span class="value-pill" id="scoreRateValue">0.035</span>
+        </label>
+        <label class="control-row">
+          <span>Difficulty curve</span>
+          <input class="settings-control" id="difficultyCurve" data-setting="difficultyCurve" type="range" min="0.5" max="2" step="0.1" value="1" />
+          <span class="value-pill" id="difficultyCurveValue">1.0</span>
+        </label>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const restartBtn = document.getElementById('restartBtn');
+    const scoreEl = document.getElementById('score');
+    const overlayText = document.getElementById('overlayText');
+
+    const GROUND_Y = 330;
+    const PLAYER_WIDTH = 44;
+    const PLAYER_HEIGHT = 62;
+    const STORAGE_KEY = 'robot-runner-settings';
+    const OFFSCREEN_SPAWN_BUFFER = 140;
+
+    const defaultSettings = {
+      jumpForce: 12.7,
+      gravity: 0.48,
+      groundSpeed: 4.2,
+      spawnDelayVariance: 200,
+      spawnInterval: 800,
+      scoreRate: 0.035,
+      difficultyCurve: 1
+    };
+
+    const tuning = loadSavedSettings();
+    const settingLabels = {
+      jumpForce: document.getElementById('jumpForceValue'),
+      gravity: document.getElementById('gravityValue'),
+      groundSpeed: document.getElementById('groundSpeedValue'),
+      spawnDelayVariance: document.getElementById('spawnDelayVarianceValue'),
+      spawnInterval: document.getElementById('spawnIntervalValue'),
+      scoreRate: document.getElementById('scoreRateValue'),
+      difficultyCurve: document.getElementById('difficultyCurveValue')
+    };
+
+    let state = 'idle';
+    let lastTime = 0;
+    let score = 0;
+    let spawnTimer = 0;
+    let groundOffset = 0;
+    let obstacles = [];
+
+    const player = {
+      x: 120,
+      y: GROUND_Y - PLAYER_HEIGHT,
+      width: PLAYER_WIDTH,
+      height: PLAYER_HEIGHT,
+      vy: 0,
+      onGround: true
+    };
+
+    function loadSavedSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        const normalized = { ...defaultSettings, ...(saved || {}) };
+
+        if (saved && 'obstacleSpeed' in saved) {
+          normalized.groundSpeed = saved.obstacleSpeed;
+        }
+
+        if (saved && 'obstacleSpeedVariance' in saved) {
+          normalized.spawnDelayVariance = saved.obstacleSpeedVariance;
+        }
+
+        return normalized;
+      } catch (error) {
+        return { ...defaultSettings };
+      }
+    }
+
+    function saveSettings() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tuning));
+    }
+
+    function syncSettingsUI() {
+      document.querySelectorAll('.settings-control').forEach((input) => {
+        const key = input.dataset.setting;
+        input.value = tuning[key];
+      });
+
+      Object.entries(settingLabels).forEach(([key, label]) => {
+        const value = tuning[key];
+        if (key === 'spawnInterval' || key === 'spawnDelayVariance') {
+          label.textContent = `${Math.round(value)} ms`;
+        } else if (key === 'scoreRate') {
+          label.textContent = value.toFixed(3);
+        } else if (key === 'gravity' || key === 'difficultyCurve') {
+          label.textContent = value.toFixed(2);
+        } else {
+          label.textContent = value.toFixed(1);
+        }
+      });
+
+      document.querySelectorAll('.preset-btn').forEach((button) => {
+        button.classList.toggle('active', button.dataset.preset === getActivePreset());
+      });
+    }
+
+    function getActivePreset() {
+      if (tuning.jumpForce >= 13.5 && tuning.gravity <= 0.45) return 'hard';
+      if (tuning.jumpForce <= 11.5 && tuning.gravity >= 0.55) return 'easy';
+      return 'balanced';
+    }
+
+    function applyPreset(name) {
+      const presets = {
+        easy: {
+          jumpForce: 11.2,
+          gravity: 0.56,
+          groundSpeed: 3.2,
+          spawnDelayVariance: 120,
+          spawnInterval: 950,
+          scoreRate: 0.028,
+          difficultyCurve: 0.8
+        },
+        balanced: {
+          jumpForce: 12.7,
+          gravity: 0.48,
+          groundSpeed: 4.2,
+          spawnDelayVariance: 200,
+          spawnInterval: 800,
+          scoreRate: 0.035,
+          difficultyCurve: 1
+        },
+        hard: {
+          jumpForce: 13.8,
+          gravity: 0.42,
+          groundSpeed: 5.8,
+          spawnDelayVariance: 280,
+          spawnInterval: 650,
+          scoreRate: 0.042,
+          difficultyCurve: 1.35
+        }
+      };
+
+      Object.assign(tuning, presets[name]);
+      saveSettings();
+      syncSettingsUI();
+    }
+
+    function resetSettings() {
+      Object.assign(tuning, defaultSettings);
+      saveSettings();
+      syncSettingsUI();
+    }
+
+    function resetGame() {
+      state = 'idle';
+      score = 0;
+      spawnTimer = 0;
+      groundOffset = 0;
+      obstacles = [];
+      player.x = 120;
+      player.y = GROUND_Y - PLAYER_HEIGHT;
+      player.vy = 0;
+      player.onGround = true;
+      scoreEl.textContent = '0';
+      overlayText.textContent = 'Press Space, ↑, or click to jump over the hazards.';
+      draw();
+    }
+
+    function startGame() {
+      if (state === 'running') return;
+      state = 'running';
+      overlayText.textContent = 'Stay sharp — the pace keeps rising.';
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    function jump() {
+      if (state === 'idle') {
+        startGame();
+      }
+
+      if (state === 'running' && player.onGround) {
+        player.vy = -tuning.jumpForce;
+        player.onGround = false;
+      }
+
+      if (state === 'gameover') {
+        resetGame();
+        startGame();
+      }
+    }
+
+    function spawnObstacle() {
+      const height = 40 + Math.random() * 34;
+      const width = 22 + Math.random() * 16;
+      obstacles.push({
+        x: canvas.width + OFFSCREEN_SPAWN_BUFFER + Math.random() * 120,
+        y: GROUND_Y - height,
+        width,
+        height
+      });
+    }
+
+    function update(dt) {
+      if (state !== 'running') return;
+
+      score += dt * tuning.scoreRate;
+      scoreEl.textContent = Math.floor(score);
+
+      spawnTimer += dt;
+      const targetDelay = tuning.spawnInterval + (Math.random() * 2 - 1) * tuning.spawnDelayVariance;
+      if (spawnTimer > targetDelay) {
+        spawnObstacle();
+        spawnTimer = 0;
+      }
+
+      groundOffset += tuning.groundSpeed * (dt / 16.67);
+      player.vy += tuning.gravity * (dt / 16.67);
+      player.y += player.vy;
+
+      if (player.y >= GROUND_Y - player.height) {
+        player.y = GROUND_Y - player.height;
+        player.vy = 0;
+        player.onGround = true;
+      }
+
+      for (let i = obstacles.length - 1; i >= 0; i -= 1) {
+        const obstacle = obstacles[i];
+        const obstacleScreenX = obstacle.x - groundOffset;
+
+        if (isColliding(player, obstacle, obstacleScreenX)) {
+          state = 'gameover';
+          overlayText.textContent = 'Crash! Press Start / Restart to try again.';
+          break;
+        }
+
+        if (obstacleScreenX + obstacle.width < -10) {
+          obstacles.splice(i, 1);
+        }
+      }
+    }
+
+    function isColliding(playerRect, obstacle, obstacleX) {
+      return (
+        playerRect.x < obstacleX + obstacle.width &&
+        playerRect.x + playerRect.width > obstacleX &&
+        playerRect.y < obstacle.y + obstacle.height &&
+        playerRect.y + playerRect.height > obstacle.y
+      );
+    }
+
+    function drawGround() {
+      ctx.fillStyle = '#166534';
+      ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(0, GROUND_Y, canvas.width, 8);
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 2;
+      const stripeWidth = 40;
+      const offset = groundOffset % stripeWidth;
+      for (let x = -offset - stripeWidth; x < canvas.width + stripeWidth; x += stripeWidth) {
+        ctx.beginPath();
+        ctx.moveTo(x, GROUND_Y + 28);
+        ctx.lineTo(x + 20, GROUND_Y + 12);
+        ctx.stroke();
+      }
+    }
+
+    function drawRobot() {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(8, 10, 28, 20);
+      ctx.fillRect(0, 30, 44, 24);
+
+      ctx.fillStyle = '#dbeafe';
+      ctx.fillRect(10, 0, 24, 10);
+      ctx.fillRect(16, 12, 8, 8);
+      ctx.fillRect(14, 20, 12, 8);
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(6, 28, 6, 18);
+      ctx.fillRect(32, 28, 6, 18);
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(12, 2, 4, 4);
+      ctx.fillRect(28, 2, 4, 4);
+
+      ctx.restore();
+    }
+
+    function drawObstacles() {
+      obstacles.forEach((obstacle) => {
+        const obstacleScreenX = obstacle.x - groundOffset;
+        ctx.fillStyle = '#dc2626';
+        ctx.fillRect(obstacleScreenX, obstacle.y, obstacle.width, obstacle.height);
+        ctx.fillStyle = '#7f1d1d';
+        ctx.fillRect(obstacleScreenX + 5, obstacle.y + 5, obstacle.width - 10, obstacle.height - 10);
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGround();
+      drawObstacles();
+      drawRobot();
+
+      if (state === 'gameover') {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 38px Inter, sans-serif';
+        ctx.fillText('Game Over', 330, 170);
+      }
+    }
+
+    function loop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const delta = timestamp - lastTime;
+      lastTime = timestamp;
+
+      update(delta);
+      draw();
+
+      if (state === 'running') {
+        requestAnimationFrame(loop);
+      }
+    }
+
+    restartBtn.addEventListener('click', () => {
+      resetGame();
+      startGame();
+    });
+
+    document.querySelectorAll('.settings-control').forEach((input) => {
+      input.addEventListener('input', () => {
+        const key = input.dataset.setting;
+        tuning[key] = Number(input.value);
+        saveSettings();
+        syncSettingsUI();
+      });
+    });
+
+    document.querySelectorAll('.preset-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        applyPreset(button.dataset.preset);
+      });
+    });
+
+    document.getElementById('resetSettingsBtn').addEventListener('click', () => {
+      resetSettings();
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'Space' || event.code === 'ArrowUp' || event.code === 'KeyW') {
+        event.preventDefault();
+        jump();
+      }
+    });
+
+    canvas.addEventListener('pointerdown', jump);
+
+    syncSettingsUI();
+    resetGame();
+  </script>
+</body>
+</html>
