@@ -393,7 +393,7 @@
       const height = 40 + Math.random() * 34;
       const width = 22 + Math.random() * 16;
       obstacles.push({
-        x: canvas.width + OFFSCREEN_SPAWN_BUFFER + Math.random() * 120,
+        x: canvas.width + OFFSCREEN_SPAWN_BUFFER + Math.random() * 120+groundOffset,
         y: GROUND_Y - height,
         width,
         height
